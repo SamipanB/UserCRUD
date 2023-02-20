@@ -3,6 +3,8 @@ const APIError = require("../utils/classes/api-errors");
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const handleBulkUser = require("../services/bulk-create.service");
+const uploadFile = require("../utils/s3.config");
+const { sendUrlToAdmin } = require("../services/send-mail.service");
 
 class UserController {
   async createUser(req, res, next) {
@@ -85,13 +87,18 @@ class UserController {
       "/users/login"
     );
     try {
-      const user = await UserModel.findOne({ email: req.body.email });
+      const user = await UserModel.findOne({ email: req.body.email })
+        .select("password")
+        .select("email")
+        .select("role");
+      console.log(user);
       if (!user) throw invalidCredError;
       const validPass = await bcrypt.compare(req.body.password, user.password);
       if (!validPass) throw invalidCredError;
       const data = {
         userId: user._id,
         role: user.role,
+        email: user.email,
       };
       const token = jwt.sign(data, process.env.SECRET_KEY);
       res.json({ status: true, data: token });
@@ -102,8 +109,14 @@ class UserController {
 
   async handleBulkUser(req, res, next) {
     try {
-      handleBulkUser(req.file.path);
-      res.json({ status: true, data: "Uploaded successfully" });
+      // await uploadFile("uploads", req.file);
+      const result = await handleBulkUser(req.file.buffer);
+      console.log(result);
+      res.json({
+        status: true,
+        data: { message: "Uploaded successfully", url: result.Location },
+      });
+      sendUrlToAdmin(req.user.email, result.Location);
     } catch (err) {
       next(err);
     }

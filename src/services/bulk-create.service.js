@@ -2,12 +2,14 @@ const xlsx = require("node-xlsx");
 const userModel = require("../models/user.model");
 const bcrypt = require("bcrypt");
 const fs = require("fs");
-const sendAcknowledgement = require("./send-ack.service");
+const sendAcknowledgement = require("./send-mail.service");
+const { uploadFileBuffer } = require("../utils/s3.config");
 
-const handleBulkUser = async (path) => {
+const handleBulkUser = async (fileBuffer) => {
   try {
     const xlExport = [];
-    const xlFile = xlsx.parse(path);
+    const xlFile = xlsx.parse(fileBuffer);
+    console.log(xlFile);
 
     await Promise.all(
       xlFile[0].data.map(async (item, idx) => {
@@ -31,6 +33,7 @@ const handleBulkUser = async (path) => {
         sendAcknowledgement(user.email)
           .then()
           .catch((err) => {
+            console.log(err);
             emailStat = "Not sent";
           });
         user.password = await bcrypt.hash(user.password, 10);
@@ -40,7 +43,8 @@ const handleBulkUser = async (path) => {
     );
 
     const buffer = xlsx.build([{ name: "Creation Sheet", data: xlExport }]);
-    fs.writeFileSync("./exports/export.xlsx", buffer);
+    const result = await uploadFileBuffer("exports", buffer);
+    return result;
   } catch (err) {
     console.log(err);
   }

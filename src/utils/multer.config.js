@@ -1,12 +1,6 @@
 const multer = require("multer");
 
-const storage = multer.diskStorage({
-  destination: "./uploads",
-  filename: function (req, file, cb) {
-    const uniqueSuffix = Date.now();
-    cb(null, file.fieldname + "-" + uniqueSuffix + ".xlsx");
-  },
-});
+const storage = multer.memoryStorage();
 
 const upload = multer({ storage });
 
